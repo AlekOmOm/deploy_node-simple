@@ -11,7 +11,7 @@ log() {
 log "dir contents: $(ls -la)"
 log "config contents $(ls -la config)"
 
-ENV_CONFIG_PATH=".env.deploy"
+ENV_CONFIG_PATH="config/.env.deploy"
 
 log "content of .env.deploy: $(cat $ENV_CONFIG_PATH)"
 

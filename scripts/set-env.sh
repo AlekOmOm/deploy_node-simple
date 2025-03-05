@@ -39,54 +39,73 @@ fi
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
 GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
 
-# Based on Branch set specific environment variables
-    # Environment Configuration
-    # Deployment Configuration
-    # Env HOST, PORT, NODE_ENV, LOG_* Configuration
-if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
-  # Production environment
-  echo "APP_ENV=${PROD_ENV:-production}"
-  echo "PORT=${PROD_PORT:-8080}"
-  echo "HOST=${PROD_HOST:-0.0.0.0}"
-  echo "TAG=production-$(echo ${GIT_COMMIT} | tr '[:upper:]' '[:lower:]')"
-  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
-  echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}-prod} | tr '[:upper:]' '[:lower:]')"
-  echo "NODE_ENV=${PROD_NODE_ENV:-production}"
-  echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
-  echo "DEPLOYMENT_PATH=~/app-deployment/production"
-else
-  # Development environment
-  echo "APP_ENV=${DEV_ENV:-development}"
-  echo "PORT=${DEV_PORT:-3000}"
-  echo "HOST=${DEV_HOST:-0.0.0.0}"
-  echo "TAG=development-$(echo ${GIT_COMMIT} | tr '[:upper:]' '[:lower:]')"
-  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
-  echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
-  echo "NODE_ENV=${DEV_NODE_ENV:-development}"
-  echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
-  echo "DEPLOYMENT_PATH=~/app-deployment/development"
-fi
+# mkdir config if not exists
+mkdir -p config
 
-# Common variables for both environments
-echo "GIT_BRANCH=${GIT_BRANCH}"
-echo "GIT_COMMIT=${GIT_COMMIT}"
+# .env.deploy file generation
+{
+    # Based on Branch set specific environment variables
+        # Environment Configuration
+        # Deployment Configuration
+        # Env HOST, PORT, NODE_ENV, LOG_* Configuration
+    if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
+      # Production environment
+      echo "APP_ENV=${PROD_ENV:-production}"
+      echo "PORT=${PROD_PORT:-8080}"
+      echo "HOST=${PROD_HOST:-0.0.0.0}"
+      echo "TAG=production-$(echo ${GIT_COMMIT} | tr '[:upper:]' '[:lower:]')"
+      echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
+      echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}-prod} | tr '[:upper:]' '[:lower:]')"
+      echo "NODE_ENV=${PROD_NODE_ENV:-production}"
+      echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
+      echo "DEPLOYMENT_PATH=~/app-deployment/production"
+    else
+      # Development environment
+      echo "APP_ENV=${DEV_ENV:-development}"
+      echo "PORT=${DEV_PORT:-3000}"
+      echo "HOST=${DEV_HOST:-0.0.0.0}"
+      echo "TAG=development-$(echo ${GIT_COMMIT} | tr '[:upper:]' '[:lower:]')"
+      echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
+      echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
+      echo "NODE_ENV=${DEV_NODE_ENV:-development}"
+      echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
+      echo "DEPLOYMENT_PATH=~/app-deployment/development"
+    fi
 
-# application Configuration
-echo "APP_NAME=${APP_NAME}"
-echo "APP_DESCRIPTION=${APP_DESCRIPTION:-Simple Node.js application}"
-echo "APP_LICENSE=${APP_LICENSE:-MIT}"
-echo "APP_VERSION=${APP_VERSION:-1.0.0}"
 
-# Node.js Configuration
-echo "NODE_VERSION=${NODE_VERSION:-lts}"
-echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}"
-echo "NODE_MIN_VERSION=${NODE_MIN_VERSION:-18.0.0}"
-echo "NODE_SERVER_PATH=${NODE_SERVER_PATH:-server.js}"
+    # Common variables for both environments
+    echo "GIT_BRANCH=${GIT_BRANCH}"
+    echo "GIT_COMMIT=${GIT_COMMIT}"
 
-# Docker Configuration
-echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
-echo "RESTART_POLICY=${RESTART_POLICY:-unless-stopped}"
+    # application Configuration
+    echo "APP_NAME=${APP_NAME}"
+    echo "APP_DESCRIPTION=${APP_DESCRIPTION:-Simple Node.js application}"
+    echo "APP_LICENSE=${APP_LICENSE:-MIT}"
+    echo "APP_VERSION=${APP_VERSION:-1.0.0}"
 
-# Deployment Specifications 
-echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-echo "DEPLOYMENT_SHA=${GIT_COMMIT}"
+    # Node.js Configuration
+    echo "NODE_VERSION=${NODE_VERSION:-lts}"
+    echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}"
+    echo "NODE_MIN_VERSION=${NODE_MIN_VERSION:-18.0.0}"
+    echo "NODE_SERVER_PATH=${NODE_SERVER_PATH:-server.js}"
+
+    # Docker Configuration
+    echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
+    echo "RESTART_POLICY=${RESTART_POLICY:-unless-stopped}"
+
+    # Deployment Specifications 
+    echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+    echo "DEPLOYMENT_SHA=${GIT_COMMIT}"
+
+
+# write to .env.deploy file
+} > config/.env.deploy
+
+# Convert the file to Unix format
+dos2unix config/.env.deploy
+
+# Source the deployment file
+set -a
+source config/.env.deploy
+
+
