@@ -8,4 +8,4 @@ const getAppInfo = () => {
   };
 };
 
-module.exports = { getAppInfo };
+export default getAppInfo;

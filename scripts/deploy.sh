@@ -7,13 +7,13 @@ log() {
 }
 
 # Primary source of variables: .env.deploy
-if [ -f "./.env.deploy" ]; then
+if [ -f "./config/.env.deploy" ]; then
   log "Loading deployment variables from .env.deploy"
   set -a # automatically export all variables
-  source "./.env.deploy"
+  source "./config/.env.deploy"
   set +a
 else
-  log "Error: .env.deploy not found, cannot proceed with deployment"
+  log "Error: ../config/.env.deploy not found, cannot proceed with deployment"
   exit 1
 fi
 
