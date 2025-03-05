@@ -1,0 +1,165 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main 
+      - dev 
+  pull_request:
+    branches:
+      - main 
+      - dev 
+
+jobs:
+  build:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Load configuration from .env.config file
+      - name: Load .env.config
+        id: env-config
+        uses: xom9ikk/dotenv@v2
+        with:
+          path: ./config/
+          file_name: .env.config
+          export-variables: true
+      
+      # Set conditional environment variables based on branch
+      - name: Set environment variables based on branch
+        id: set-env
+        run: |
+          if [[ $GITHUB_REF == refs/heads/main || $GITHUB_REF == refs/heads/master ]]; then
+            echo "APP_ENV=production" >> $GITHUB_ENV
+            echo "TAG=production" >> $GITHUB_ENV
+            echo "PORT=${PROD_PORT:-8080}" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=${PROD_CONTAINER_NAME:-${APP_NAME:-test-cd-app}-prod}" >> $GITHUB_ENV
+            echo "ENV_FILE=${PROD_ENV_FILE:-.env.prod}" >> $GITHUB_ENV
+          else
+            echo "APP_ENV=development" >> $GITHUB_ENV
+            echo "TAG=development" >> $GITHUB_ENV
+            echo "PORT=${DEV_PORT:-3000}" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=${DEV_CONTAINER_NAME:-${APP_NAME:-test-cd-app}-dev}" >> $GITHUB_ENV
+            echo "ENV_FILE=${DEV_ENV_FILE:-.env.dev}" >> $GITHUB_ENV
+          fi
+          
+          # Set common variables and make them available to other steps
+          echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY_OWNER}/${APP_NAME:-test-cd-app}" >> $GITHUB_ENV
+          echo "NODE_VERSION=${NODE_VERSION:-18.16.0}" >> $GITHUB_ENV
+          echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}" >> $GITHUB_ENV
+      
+      # Log environment variables for debugging
+      - name: Print environment variables
+        run: |
+          echo "DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}"
+          echo "IMAGE_NAME: ${{ env.IMAGE_NAME }}"
+          echo "APP_NAME: ${{ env.APP_NAME }}"
+          echo "NODE_VERSION: ${{ env.NODE_VERSION }}"
+          echo "APP_ENV: ${{ env.APP_ENV }}"
+          echo "TAG: ${{ env.TAG }}"
+          echo "PORT: ${{ env.PORT }}"
+          echo "CONTAINER_NAME: ${{ env.CONTAINER_NAME }}"
+          echo "ENV_FILE: ${{ env.ENV_FILE }}"
+      
+      # Set up Node.js for testing
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }} 
+          cache: 'npm'
+      
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+      
+      # Run tests if you have them
+      - name: Run tests
+        run: npm test
+      
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}-${{ github.sha }}
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            NODE_VERSION_TAG=${{ env.NODE_VERSION_TAG }}
+            APP_ENV=${{ env.APP_ENV }}
+            PORT=${{ env.PORT }}
+  
+  deploy:
+    name: Deploy to server
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Load configuration from .env.config file
+      - name: Load .env.config
+        id: env-config
+        uses: xom9ikk/dotenv@v2
+        with:
+
+      - name: Copy deployment files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "deploy.sh,docker-compose.yml"
+          target: "~/app-deployment/${{ env.APP_ENV }}"
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          envs: DOCKER_REGISTRY,IMAGE_NAME,GITHUB_SHA,GITHUB_RUN_NUMBER,APP_ENV,TAG,CONTAINER_NAME,PORT,ENV_FILE
+          script: |
+            cd ~/app-deployment/$APP_ENV
+            
+            # Create environment file with necessary variables
+            cat > ./$ENV_FILE << EOL
+            # Environment variables
+            HOST=0.0.0.0
+            PORT=$PORT
+            APP_ENV=$APP_ENV
+            API_KEY=${{ secrets.API_KEY }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            EOL
+            
+            # Make the deploy script executable
+            chmod +x ./deploy.sh
+            
+            # Run the deployment script
+            ./deploy.sh

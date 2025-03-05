@@ -1,0 +1,20 @@
+
+services:
+  app:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${IMAGE_NAME:-username/test-cd-app}:${TAG:-latest}
+    container_name: ${CONTAINER_NAME:-test-cd-app}
+    restart: unless-stopped
+    env_file:
+      - ./deployment.env
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_DEPLOYMENT=${APP_DEPLOYMENT:-local}
+      - PORT=${PORT:-3000}
+      - HOST=${HOST:-0.0.0.0}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    labels:
+      - "deployment.environment=${APP_ENV:-development}"
+      - "deployment.date=${DEPLOYMENT_DATE:-unknown}"
+      - "deployment.sha=${DEPLOYMENT_SHA:-unknown}"
+

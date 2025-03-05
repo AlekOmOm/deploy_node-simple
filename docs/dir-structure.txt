@@ -1,0 +1,17 @@
+test-cd-project/
+├── .github/
+│   └── workflows/
+│       └── CD-deploy.yml     # GitHub Actions workflow file
+├── config/
+│   └── .env.config           # Configuration variables
+├── src/
+│   ├── index.js              # Simple Node.js app
+│   └── server.js             # Simple server
+├── .env.dev                  # Development environment variables
+├── .env.prod                 # Production environment variables
+├── .gitignore                # Git ignore file
+├── deploy.sh                 # Deployment script
+├── docker-compose.yml        # Docker Compose file
+├── Dockerfile                # Docker image definition
+├── package.json              # Node.js package definition
+└── README.md                 # Project documentation
