@@ -60,7 +60,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ env.APP_ENV }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.LATEST_TAG }}
           build-args: |
             NODE_VERSION=${{ env.NODE_VERSION }}
             NODE_VERSION_TAG=${{ env.NODE_VERSION_TAG }}

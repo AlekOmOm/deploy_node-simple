@@ -90,16 +90,19 @@ fi
 
 # Pull latest image
 log "Pulling latest image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
-docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG} || {
-  log "Failed to pull specific tag. Trying latest for this environment..."
-  docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest-${APP_ENV} || {
+if ! docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}; then
+  log "Failed to pull specific tag. Trying latest tag..."
+  
+  # Try to pull the latest tag for this environment
+  if docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${LATEST_TAG}; then
+    # Update TAG to use the successfully pulled image
+    export TAG="${LATEST_TAG}"
+    log "Using image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+  else
     log "Error: Failed to pull both specific and latest image"
     exit 1
-  }
-  # Update TAG to use the successfully pulled image
-  export TAG="latest-${APP_ENV}"
-  log "Using image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
-}
+  fi
+fi
 
 # Starting container
 log "Starting container with docker-compose"

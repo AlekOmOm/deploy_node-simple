@@ -48,10 +48,15 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "APP_ENV=${PROD_ENV:-production}"
   echo "PORT=${PROD_PORT:-8080}"
   echo "HOST=${PROD_HOST:-0.0.0.0}"
-  # IMPORTANT: Create consistent tag format - removing the double SHA issue
-  echo "TAG=production-$(echo ${GIT_COMMIT} | cut -c1-7)"
+  
+  # Production-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
-  echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}-prod} | tr '[:upper:]' '[:lower:]')"
+  
+  # Two tags: short commit and latest-production
+  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-7)"
+  echo "LATEST_TAG=latest"
+  
+  echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
   echo "DEPLOYMENT_PATH=~/app-deployment/production"
@@ -60,9 +65,14 @@ else
   echo "APP_ENV=${DEV_ENV:-development}"
   echo "PORT=${DEV_PORT:-3000}"
   echo "HOST=${DEV_HOST:-0.0.0.0}"
-  # IMPORTANT: Create consistent tag format - removing the double SHA issue
-  echo "TAG=development-$(echo ${GIT_COMMIT} | cut -c1-7)"
-  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
+  
+  # Development-specific image name
+  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
+  
+  # Two tags: short commit and latest-development
+  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-7)"
+  echo "LATEST_TAG=dev-latest"
+  
   echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${DEV_NODE_ENV:-development}"
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
