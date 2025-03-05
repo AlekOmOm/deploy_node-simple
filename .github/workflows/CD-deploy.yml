@@ -87,13 +87,11 @@ jobs:
         run: |
           mkdir -p ./config
           
-          # Generate environment once
           chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
 
 
-          # Ensure dos2unix is installed (only needed once)
-
+          # Ensure dos2unix is installed 
           if ! command -v dos2unix &> /dev/null
           then
               sudo apt-get update && sudo apt-get install -y dos2unix
