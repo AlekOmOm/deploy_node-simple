@@ -7,13 +7,15 @@ log() {
 }
 
 # Primary source of variables: .env.deploy
-if [ -f "./config/.env.deploy" ]; then
-  log "Loading deployment variables from .env.deploy"
+# # path from repo root: ./config/.env.deploy
+$ENV_CONFIG_PATH="./config/.env.deploy"
+if [ -f $ENV_CONFIG_PATH ]; then
+  log "Loading deployment variables from .env.deploy at $ENV_CONFIG_PATH"
   set -a # automatically export all variables
-  source "./config/.env.deploy"
+  source $ENV_CONFIG_PATH  
   set +a
 else
-  log "Error: ../config/.env.deploy not found, cannot proceed with deployment"
+  log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 
   exit 1
 fi
 

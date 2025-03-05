@@ -1,5 +1,6 @@
 // Simple module to demonstrate functionality
-const getAppInfo = () => {
+
+export const getAppInfo = () => {
   return {
     name: process.env.APP_NAME || 'test-cd-app',
     version: process.env.APP_VERSION || '1.0.0',
