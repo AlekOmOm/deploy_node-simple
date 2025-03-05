@@ -68,7 +68,7 @@ else
   
   # Development-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
-  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}}-dev | tr '[:upper:]' '[:lower:]')"
+  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-development
   echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-11)"
