@@ -29,42 +29,7 @@ ENV_CONFIG_PATH="config/.env.deploy"
 if type load_environment &>/dev/null; then
   load_environment "$ENV_CONFIG_PATH" true
 else
-  if [ -f "$ENV_CONFIG_PATH" ]; then
-    log "Loading deployment variables from $ENV_CONFIG_PATH"
-    
-    # More robust way to load environment variables
-    while IFS='=' read -r key value || [ -n "$key" ]; do
-      # Skip empty lines and comments
-      if [[ -z "$key" || "$key" =~ ^# ]]; then
-        continue
-      
-      # Remove any whitespace and export the variable
-      key=$(echo "$key" | xargs)
-      value=$(echo "$value" | xargs)
-      export "$key=$value"
-      
-    done < "$ENV_CONFIG_PATH"
-  else
-    log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 
-    
-    # Try to generate it using set-env.sh
-    if [ -f "./scripts/set-env.sh" ]; then
-      log "Attempting to generate .env.deploy using set-env.sh"
-      mkdir -p config
-      chmod +x ./scripts/set-env.sh
-      ./scripts/set-env.sh > "$ENV_CONFIG_PATH"
-      
-      if [ -f "$ENV_CONFIG_PATH" ]; then
-        log "Successfully generated $ENV_CONFIG_PATH"
-        source "$ENV_CONFIG_PATH"
-      else
-        log "Failed to generate $ENV_CONFIG_PATH"
-        exit 1
-      fi
-    else
-      exit 1
-    fi
-  fi
+  exit 1
 fi
 
 # Use check_required_vars from deployment-utils.sh if available, otherwise fall back
