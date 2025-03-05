@@ -38,7 +38,9 @@ fi
 
 # Common variables for both environments
 echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
-echo "IMAGE_NAME=${GITHUB_REPOSITORY_OWNER:-username}/${APP_NAME:-app}"
+#echo "IMAGE_NAME=${GITHUB_REPOSITORY_OWNER:-username}/${APP_NAME:-app}"
+# IMAGE_NAME to lower case
+echo "IMAGE_NAME=$(echo ${GITHUB_REPOSITORY_OWNER:-username}/${APP_NAME:-app} | tr '[:upper:]' '[:lower:]')"
 echo "NODE_VERSION=${NODE_VERSION:-lts}"
 echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}"
 echo "APP_VERSION=${APP_VERSION:-1.0.0}"
