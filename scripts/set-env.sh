@@ -25,7 +25,7 @@ if [[ $BRANCH == "main" || $BRANCH == "master" ]]; then
   echo "TAG=production-${COMMIT}" | tr '[:upper:]' '[:lower:]'
   echo "PORT=${PROD_PORT:-8080}"
   echo "HOST=${PROD_HOST:-0.0.0.0}"
-  echo "IMAGE_NAME=ghcr.io/${GITHUB_USERNAME}/${APP_NAME}:production-${COMMIT}" | tr '[:upper:]' '[:lower:]'
+  echo "IMAGE_NAME=${GITHUB_USERNAME}/${APP_NAME}" | tr '[:upper:]' '[:lower:]'
   echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}-prod} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
@@ -36,7 +36,7 @@ else
   echo "TAG=development-${COMMIT}" | tr '[:upper:]' '[:lower:]'
   echo "PORT=${DEV_PORT:-3000}"
   echo "HOST=${DEV_HOST:-0.0.0.0}"
-  echo "IMAGE_NAME=ghcr.io/${GITHUB_USERNAME}/${APP_NAME}:development-${COMMIT}" | tr '[:upper:]' '[:lower:]'
+  echo "IMAGE_NAME=${GITHUB_USERNAME}/${APP_NAME}" | tr '[:upper:]' '[:lower:]'
   echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${DEV_NODE_ENV:-development}"
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
