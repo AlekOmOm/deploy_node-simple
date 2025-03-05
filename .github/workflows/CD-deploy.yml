@@ -83,7 +83,11 @@ jobs:
           chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh >> $GITHUB_ENV
 
+      - name: Print of dir content 
+        run: | 
+          ls -la
           ls -la ./scripts
+          ls -la ./config
 
       - name: Copy deployment files to server
         uses: appleboy/scp-action@master
@@ -92,7 +96,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh"
+          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment_utils.sh,scripts/prepare-scripts.sh"
           target: "${{ env.DEPLOYMENT_PATH }}"
 
       - name: Prepare deployment files
