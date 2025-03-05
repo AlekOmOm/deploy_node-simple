@@ -106,7 +106,7 @@ jobs:
             
             # Generate environment variables for deployment
             chmod +x ./scripts/set-env.sh
-            ./scripts/set-env.sh > ./.env.deploy
+            ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./.env.deploy
             
             # Make the deploy script executable and run it
             chmod +x ./scripts/deploy.sh
