@@ -16,23 +16,19 @@ fi
 
 log "Starting deployment process"
 log "Working directory: $(pwd)"
-log "Project root: $(pwd)"
-
-log "content: $(ls -la)"
-log "- config content: $(ls -la config)"
-log "- scripts content: $(ls -la scripts)"
 
 # Primary source of variables: .env.deploy
 ENV_CONFIG_PATH="config/.env.deploy"
 
-# Use load_environment from deployment-utils.sh if available, otherwise fall back
+# Use load_environment from deployment-utils.sh if available, otherwise exit
 if type load_environment &>/dev/null; then
   load_environment "$ENV_CONFIG_PATH" true
 else
+  log "Error: load_environment function not available and required"
   exit 1
 fi
 
-# Use check_required_vars from deployment-utils.sh if available, otherwise fall back
+# Use check_required_vars from deployment-utils.sh if available, otherwise check manually
 if type check_required_vars &>/dev/null; then
   check_required_vars DOCKER_REGISTRY IMAGE_NAME TAG CONTAINER_NAME PORT
 else
@@ -51,7 +47,7 @@ log "Environment: ${APP_ENV}"
 log "Container: ${CONTAINER_NAME}"
 log "Port: ${PORT}"
 
-# Use check_docker_availability from deployment-utils.sh if available, otherwise fall back
+# Use check_docker_availability from deployment-utils.sh if available, otherwise check manually
 if type check_docker_availability &>/dev/null; then
   check_docker_availability
 else
@@ -67,33 +63,88 @@ else
   fi
 fi
 
+# Create image reference variables for clarity
+SPECIFIC_IMAGE="${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+LATEST_IMAGE="${DOCKER_REGISTRY}/${IMAGE_NAME}:${LATEST_TAG:-latest}"
+
 # Pull latest image
-log "Pulling latest image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
-if ! docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}; then
+log "Pulling latest image: $SPECIFIC_IMAGE"
+if ! docker pull $SPECIFIC_IMAGE; then
   log "Failed to pull specific tag. Trying latest tag..."
   
   # Try to pull the latest tag for this environment
-  if docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${LATEST_TAG}; then
+  if docker pull $LATEST_IMAGE; then
     # Update TAG to use the successfully pulled image
-    export TAG="${LATEST_TAG}"
-    log "Using image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+    export TAG="${LATEST_TAG:-latest}"
+    log "Using image: $LATEST_IMAGE"
   else
     log "Error: Failed to pull both specific and latest image"
     exit 1
   fi
 fi
 
-# Starting container
+# Ensure config files have proper format if utility exists
+if type fix_env_format &>/dev/null; then
+  log "Ensuring environment files are properly formatted"
+  fix_env_format "$ENV_CONFIG_PATH" "$ENV_CONFIG_PATH"
+fi
+
+# Check if our target container is already running and using the target port
+log "Checking for container ${CONTAINER_NAME} using port ${PORT}..."
+
+# First, check if our target container exists
+if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+  log "Container ${CONTAINER_NAME} exists"
+  
+  # Check if it's using our target port
+  if docker port ${CONTAINER_NAME} | grep -q ":${PORT}" || docker inspect --format='{{range $p, $conf := .HostConfig.PortBindings}}{{(index $conf 0).HostPort}}{{end}}' ${CONTAINER_NAME} | grep -q "${PORT}"; then
+    log "Container ${CONTAINER_NAME} is using port ${PORT}. Stopping it..."
+    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
+    
+    log "Removing container ${CONTAINER_NAME}..."
+    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  else
+    log "Container ${CONTAINER_NAME} exists but is not using port ${PORT}. Stopping it anyway as we need the name..."
+    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
+    
+    log "Removing container ${CONTAINER_NAME}..."
+    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  fi
+  
+  # Clean up related images
+  if type cleanup_old_resources &>/dev/null; then
+    log "Using utility to clean up old resources"
+    cleanup_old_resources "${APP_ENV}"
+  else
+    log "Cleaning up old images for environment: ${APP_ENV}"
+    docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
+  fi
+else
+  log "No container named ${CONTAINER_NAME} found"
+fi
+
+# Now check port availability to ensure port is free
+if type check_port_availability &>/dev/null; then
+  log "Checking if port ${PORT} is available on ${HOST:-0.0.0.0}"
+  if ! check_port_availability "${PORT}" "${HOST:-0.0.0.0}"; then
+    log "Error: Port ${PORT} is in use on ${HOST:-0.0.0.0} by a different service"
+    log "Please either free up this port or configure a different port in the environment files"
+    log "You may need to manually check what's using this port with: lsof -i :${PORT} or netstat -tuln | grep ${PORT}"
+    exit 1
+  else
+    log "Port ${PORT} is available"
+  fi
+else
+  log "Port availability check skipped (utility function not available)"
+fi
+
+# Starting container with docker-compose
 log "Starting container with docker-compose"
 if ! docker-compose up -d; then
   log "Error: Failed to start container with docker-compose"
   log "Trying docker run as fallback..."
   
-  # Stop and remove container if it exists
-  docker stop ${CONTAINER_NAME} 2>/dev/null || true
-  docker rm ${CONTAINER_NAME} 2>/dev/null || true
-  
-  # Run with docker
+  # Run with docker (container was already removed above if it existed)
   docker run -d \
     --name ${CONTAINER_NAME} \
     --restart ${RESTART_POLICY:-unless-stopped} \
@@ -105,11 +156,19 @@ if ! docker-compose up -d; then
     ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}
 fi
 
-# Use verify_deployment from deployment-utils.sh if available, otherwise fall back
+# Record deployment start time for metrics
+DEPLOY_START_TIME=$(date +%s)
+
+# Use verify_deployment from deployment-utils.sh if available, otherwise verify manually
 if type verify_deployment &>/dev/null; then
-  verify_deployment "localhost" "${PORT}" 3 5
+  log "Verifying deployment using utility function"
+  if ! verify_deployment "localhost" "${PORT}" 3 5; then
+    log "❌ Deployment verification failed. Check container logs with: docker logs ${CONTAINER_NAME}"
+    # Optional: add rollback logic here if verification fails
+    exit 1
+  fi
 else
-  # Verify deployment
+  # Verify deployment manually
   log "Verifying deployment..."
   sleep 5
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
@@ -123,13 +182,9 @@ else
   fi
 fi
 
-# Use cleanup_old_resources from deployment-utils.sh if available, otherwise fall back
-if type cleanup_old_resources &>/dev/null; then
-  cleanup_old_resources "${APP_ENV}"
-else
-  # Clean up old images
-  log "Cleaning up old images"
-  docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
-fi
+# Calculate deployment time for metrics
+DEPLOY_END_TIME=$(date +%s)
+DEPLOY_DURATION=$((DEPLOY_END_TIME - DEPLOY_START_TIME))
+log "Total deployment time: ${DEPLOY_DURATION} seconds"
 
 log "Deployment completed successfully"

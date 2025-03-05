@@ -25,7 +25,9 @@ services:
 networks:
   development_network:
     name: ${APP_NAME}_dev_network
+    external: true # allows the network to be shared with other services
     driver: bridge
   production_network:
     name: ${APP_NAME}_prod_network
+    external: true  
     driver: bridge

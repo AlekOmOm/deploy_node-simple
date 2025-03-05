@@ -108,7 +108,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment-utils.sh,scripts/deployment_utils.sh"
+          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment-utils.sh,scripts/deployment_utils.sh,scripts/auto_port-escalation.sh"
           target: "${{ env.DEPLOYMENT_PATH }}"
 
 
@@ -130,10 +130,14 @@ jobs:
             cd ${{ env.DEPLOYMENT_PATH }}
             
             # Fix permissions
+            # # chmod +x all files in scripts folder: chmod +x ./scripts/*.sh
+            chmod +x ./scripts/*.sh 2>/dev/null || true
             chmod +x ./scripts/deploy.sh
             chmod +x ./scripts/set-env.sh
-            chmod +x ./scripts/deployment-utils.sh 2>/dev/null || true
             chmod +x ./scripts/deployment_utils.sh 2>/dev/null || true
+
+            # check permissions
+            ls -la ./scripts
             
             # Run deployment
             ./scripts/deploy.sh
