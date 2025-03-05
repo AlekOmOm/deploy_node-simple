@@ -13,29 +13,9 @@ load_environment() {
   # Check if file exists
   if [ ! -f "$env_file" ]; then
     log "Warning: Environment file not found at $env_file"
-    
-    # If specifically looking for .env.deploy, try to generate it
-    if [[ "$env_file" == *".env.deploy" && -f "./scripts/set-env.sh" ]]; then
-      log "Attempting to generate .env.deploy using set-env.sh"
-      mkdir -p $(dirname "$env_file")
-      chmod +x ./scripts/set-env.sh
-      ./scripts/set-env.sh > "$env_file"
-      
-      if [ ! -f "$env_file" ]; then
-        log "Error: Failed to generate $env_file"
-        if [ "$required" = true ]; then
-          exit 1
-        fi
-        return 1
-      fi
-    elif [ "$required" = true ]; then
-      log "Error: Required environment file not found and cannot be generated"
-      exit 1
-    else
-      return 1
-    fi
+    exit 1
   fi
-  
+    
   log "Loading deployment variables from $env_file"
   
   # Process each line

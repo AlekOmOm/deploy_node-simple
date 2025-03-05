@@ -7,7 +7,7 @@ FROM node:${NODE_VERSION}-${NODE_VERSION_TAG}
 WORKDIR /app
 
 # Set environment variables
-ARG APP_ENV=development
+ARG APP_ENV=production
 ARG PORT=3000
 ENV APP_ENV=${APP_ENV}
 ENV PORT=${PORT}

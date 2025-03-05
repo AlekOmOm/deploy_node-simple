@@ -87,13 +87,11 @@ jobs:
         run: |
           mkdir -p ./config
           
-          # Generate environment once
           chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
 
 
-          # Ensure dos2unix is installed (only needed once)
-
+          # Ensure dos2unix is installed 
           if ! command -v dos2unix &> /dev/null
           then
               sudo apt-get update && sudo apt-get install -y dos2unix
@@ -112,6 +110,14 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment-utils.sh,scripts/deployment_utils.sh"
           target: "${{ env.DEPLOYMENT_PATH }}"
+
+
+      - name: print content of dir
+        run: | 
+          ls -la
+          ls -la ./scripts
+          ls -la ./config
+        
 
       - name: Deploy on server
         uses: appleboy/ssh-action@master

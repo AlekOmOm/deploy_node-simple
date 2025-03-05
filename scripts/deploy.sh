@@ -25,51 +25,25 @@ log "- scripts content: $(ls -la scripts)"
 # Primary source of variables: .env.deploy
 ENV_CONFIG_PATH="config/.env.deploy"
 
-if [ -f "$ENV_CONFIG_PATH" ]; then
-  log "Loading deployment variables from $ENV_CONFIG_PATH"
-  
-  # More robust way to load environment variables
-  while IFS='=' read -r key value || [ -n "$key" ]; do
-    # Skip empty lines and comments
-    if [[ -z "$key" || "$key" =~ ^# ]]; then
-      continue
-    fi
-    
-    # Remove any whitespace and export the variable
-    key=$(echo "$key" | xargs)
-    value=$(echo "$value" | xargs)
-    export "$key=$value"
-    
-  done < "$ENV_CONFIG_PATH"
+# Use load_environment from deployment-utils.sh if available, otherwise fall back
+if type load_environment &>/dev/null; then
+  load_environment "$ENV_CONFIG_PATH" true
 else
-  log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 
-  
-  # Try to generate it using set-env.sh
-  if [ -f "./scripts/set-env.sh" ]; then
-    log "Attempting to generate .env.deploy using set-env.sh"
-    mkdir -p config
-    chmod +x ./scripts/set-env.sh
-    ./scripts/set-env.sh > "$ENV_CONFIG_PATH"
-    
-    if [ -f "$ENV_CONFIG_PATH" ]; then
-      log "Successfully generated $ENV_CONFIG_PATH"
-      source "$ENV_CONFIG_PATH"
-    else
-      log "Failed to generate $ENV_CONFIG_PATH"
-      exit 1
-    fi
-  else
-    exit 1
-  fi
+  exit 1
 fi
 
-# Check for required variables
-for var in DOCKER_REGISTRY IMAGE_NAME TAG CONTAINER_NAME PORT; do
-  if [ -z "${!var}" ]; then
-    log "Error: Required variable $var is not set"
-    exit 1
-  fi
-done
+# Use check_required_vars from deployment-utils.sh if available, otherwise fall back
+if type check_required_vars &>/dev/null; then
+  check_required_vars DOCKER_REGISTRY IMAGE_NAME TAG CONTAINER_NAME PORT
+else
+  # Check for required variables
+  for var in DOCKER_REGISTRY IMAGE_NAME TAG CONTAINER_NAME PORT; do
+    if [ -z "${!var}" ]; then
+      log "Error: Required variable $var is not set"
+      exit 1
+    fi
+  done
+fi
 
 # Log configuration
 log "Starting deployment of ${IMAGE_NAME}:${TAG}"
@@ -77,15 +51,20 @@ log "Environment: ${APP_ENV}"
 log "Container: ${CONTAINER_NAME}"
 log "Port: ${PORT}"
 
-# Check if Docker is available
-if ! command -v docker &> /dev/null; then
-  log "Error: Docker is not installed or not in PATH"
-  exit 1
-fi
+# Use check_docker_availability from deployment-utils.sh if available, otherwise fall back
+if type check_docker_availability &>/dev/null; then
+  check_docker_availability
+else
+  # Check if Docker is available
+  if ! command -v docker &> /dev/null; then
+    log "Error: Docker is not installed or not in PATH"
+    exit 1
+  fi
 
-if ! docker info &> /dev/null; then
-  log "Error: Docker daemon is not running or current user doesn't have permissions"
-  exit 1
+  if ! docker info &> /dev/null; then
+    log "Error: Docker daemon is not running or current user doesn't have permissions"
+    exit 1
+  fi
 fi
 
 # Pull latest image
@@ -126,21 +105,31 @@ if ! docker-compose up -d; then
     ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}
 fi
 
-# Verify deployment
-log "Verifying deployment..."
-sleep 5
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
-
-if [ "$STATUS" = "200" ]; then
-  log "✅ Deployment successful! Application is running."
+# Use verify_deployment from deployment-utils.sh if available, otherwise fall back
+if type verify_deployment &>/dev/null; then
+  verify_deployment "localhost" "${PORT}" 3 5
 else
-  log "❌ Deployment verification failed. Status: ${STATUS}"
-  log "Check container logs with: docker logs ${CONTAINER_NAME}"
-  exit 1
+  # Verify deployment
+  log "Verifying deployment..."
+  sleep 5
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
+
+  if [ "$STATUS" = "200" ]; then
+    log "✅ Deployment successful! Application is running."
+  else
+    log "❌ Deployment verification failed. Status: ${STATUS}"
+    log "Check container logs with: docker logs ${CONTAINER_NAME}"
+    exit 1
+  fi
 fi
 
-# Clean up old images
-log "Cleaning up old images"
-docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
+# Use cleanup_old_resources from deployment-utils.sh if available, otherwise fall back
+if type cleanup_old_resources &>/dev/null; then
+  cleanup_old_resources "${APP_ENV}"
+else
+  # Clean up old images
+  log "Cleaning up old images"
+  docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
+fi
 
 log "Deployment completed successfully"
