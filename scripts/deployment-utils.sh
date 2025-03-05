@@ -8,12 +8,34 @@ log() {
 # Load environment variables from file
 load_environment() {
   local env_file=$1
+  local required=${2:-true}  # By default, file is required
   
+  # Check if file exists
   if [ ! -f "$env_file" ]; then
-    log "Error: Environment file not found at $env_file"
-    exit 1
-  fi 
-
+    log "Warning: Environment file not found at $env_file"
+    
+    # If specifically looking for .env.deploy, try to generate it
+    if [[ "$env_file" == *".env.deploy" && -f "./scripts/set-env.sh" ]]; then
+      log "Attempting to generate .env.deploy using set-env.sh"
+      mkdir -p $(dirname "$env_file")
+      chmod +x ./scripts/set-env.sh
+      ./scripts/set-env.sh > "$env_file"
+      
+      if [ ! -f "$env_file" ]; then
+        log "Error: Failed to generate $env_file"
+        if [ "$required" = true ]; then
+          exit 1
+        fi
+        return 1
+      fi
+    elif [ "$required" = true ]; then
+      log "Error: Required environment file not found and cannot be generated"
+      exit 1
+    else
+      return 1
+    fi
+  fi
+  
   log "Loading deployment variables from $env_file"
   
   # More robust way to load environment variables
@@ -29,6 +51,8 @@ load_environment() {
     export "$key=$value"
     
   done < "$env_file"
+  
+  return 0
 }
 
 # Check for required environment variables

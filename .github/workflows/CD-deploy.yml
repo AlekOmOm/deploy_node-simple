@@ -108,8 +108,6 @@ jobs:
       
           sed -i 's/\r$//' ./config/.env.deploy
 
-          chmod +x ./scripts/*.sh
-
       - name: Deploy.sh in server
         uses: appleboy/ssh-action@master
         with:
@@ -120,4 +118,6 @@ jobs:
           script: |
             cd ${{ env.DEPLOYMENT_PATH }}
 
+            chmod +x ./scripts/deploy.sh
+            chmod +x ./scripts/*
             ./scripts/deploy.sh
