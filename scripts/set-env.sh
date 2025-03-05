@@ -16,16 +16,16 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT=$(git rev-parse HEAD)
     # Convert to lowercase for Docker compatibility
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
-GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
+GITHUB_USERNAME_LOWER=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
 
 # Set environment based on branch
 if [[ $BRANCH == "main" || $BRANCH == "master" ]]; then
   # Production environment
   echo "APP_ENV=${PROD_ENV:-production}"
-  echo "TAG=production-${COMMIT}" | tr '[:upper:]' '[:lower:]'
   echo "PORT=${PROD_PORT:-8080}"
   echo "HOST=${PROD_HOST:-0.0.0.0}"
-  echo "IMAGE_NAME=${GITHUB_USERNAME}/${APP_NAME}" | tr '[:upper:]' '[:lower:]'
+  echo "TAG=production-$(echo ${COMMIT} | tr '[:upper:]' '[:lower:]')"
+  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
   echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}-prod} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
@@ -33,10 +33,10 @@ if [[ $BRANCH == "main" || $BRANCH == "master" ]]; then
 else
   # Development environment
   echo "APP_ENV=${DEV_ENV:-development}"
-  echo "TAG=development-${COMMIT}" | tr '[:upper:]' '[:lower:]'
   echo "PORT=${DEV_PORT:-3000}"
   echo "HOST=${DEV_HOST:-0.0.0.0}"
-  echo "IMAGE_NAME=${GITHUB_USERNAME}/${APP_NAME}" | tr '[:upper:]' '[:lower:]'
+  echo "TAG=development-$(echo ${COMMIT} | tr '[:upper:]' '[:lower:]')"
+  echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
   echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${DEV_NODE_ENV:-development}"
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
