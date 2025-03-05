@@ -130,10 +130,14 @@ jobs:
             cd ${{ env.DEPLOYMENT_PATH }}
             
             # Fix permissions
+            # # chmod +x all files in scripts folder: chmod +x ./scripts/*.sh
+            chmod +x ./scripts/*.sh 2>/dev/null || true
             chmod +x ./scripts/deploy.sh
             chmod +x ./scripts/set-env.sh
-            chmod +x ./scripts/deployment-utils.sh 2>/dev/null || true
             chmod +x ./scripts/deployment_utils.sh 2>/dev/null || true
+
+            # check permissions
+            ls -la ./scripts
             
             # Run deployment
             ./scripts/deploy.sh
