@@ -111,6 +111,15 @@ jobs:
           source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment-utils.sh,scripts/deployment_utils.sh"
           target: "${{ env.DEPLOYMENT_PATH }}"
 
+
+      - name: print content of dir
+        run: | 
+          cd ${{ env.DEPLOYMENT_PATH }}
+          ls -la
+          ls -la ./scripts
+          ls -la ./config
+        
+
       - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:

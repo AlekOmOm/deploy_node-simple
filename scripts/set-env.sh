@@ -51,12 +51,12 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   
   # Production-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
+  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-production
   echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-7)"
   echo "LATEST_TAG=latest"
   
-  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
   echo "DEPLOYMENT_PATH=~/app-deployment/production"
@@ -68,12 +68,12 @@ else
   
   # Development-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
+  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}}-dev | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-development
-  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-11)"
-  echo "LATEST_TAG=dev-latest"
+  echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-11)"
+  echo "LATEST_TAG=latest"
   
-  echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}}-dev | tr '[:upper:]' '[:lower:]')"
   echo "NODE_ENV=${DEV_NODE_ENV:-development}"
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
   echo "DEPLOYMENT_PATH=~/app-deployment/development"

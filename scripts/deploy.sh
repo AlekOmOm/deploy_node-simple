@@ -31,14 +31,14 @@ else
 fi
 
 # Generate a unique compose project name based on environment
-export COMPOSE_PROJECT_NAME="${APP_NAME}-${APP_ENV}"
+#export COMPOSE_PROJECT_NAME="${APP_NAME}-${APP_ENV}"
 
 # Log configuration
 log "Starting deployment of ${IMAGE_NAME}:${TAG}"
 log "Environment: ${APP_ENV}"
 log "Container: ${CONTAINER_NAME}"
 log "Port: ${PORT}"
-log "Compose project: ${COMPOSE_PROJECT_NAME}"
+#log "Compose project: ${COMPOSE_PROJECT_NAME}"
 
 # Pull latest image
 log "Pulling latest image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
