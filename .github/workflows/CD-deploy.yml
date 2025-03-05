@@ -114,7 +114,6 @@ jobs:
 
       - name: print content of dir
         run: | 
-          cd ${{ env.DEPLOYMENT_PATH }}
           ls -la
           ls -la ./scripts
           ls -la ./config
