@@ -1,26 +1,10 @@
 #!/bin/bash
 set -e
 
-# Try to source deployment utilities if available
-if [ -f "./scripts/deployment-utils.sh" ]; then
-  source "./scripts/deployment-utils.sh"
-elif [ -f "./scripts/deployment_utils.sh" ]; then
-  source "./scripts/deployment_utils.sh"
-else
-  # Fallback logging function if utilities aren't available
-  log() {
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-  }
-  log "Warning: deployment-utils.sh not found, using limited functionality"
-fi
-
-log "Starting deployment process"
-log "Working directory: $(pwd)"
-log "Project root: $(pwd)"
-
-log "content: $(ls -la)"
-log "- config content: $(ls -la config)"
-log "- scripts content: $(ls -la scripts)"
+# Log function for better visibility
+log() {
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
 
 # Primary source of variables: .env.deploy
 ENV_CONFIG_PATH="config/.env.deploy"
@@ -43,66 +27,63 @@ if [ -f "$ENV_CONFIG_PATH" ]; then
   done < "$ENV_CONFIG_PATH"
 else
   log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 
-  
-  # Try to generate it using set-env.sh
-  if [ -f "./scripts/set-env.sh" ]; then
-    log "Attempting to generate .env.deploy using set-env.sh"
-    mkdir -p config
-    chmod +x ./scripts/set-env.sh
-    ./scripts/set-env.sh > "$ENV_CONFIG_PATH"
-    
-    if [ -f "$ENV_CONFIG_PATH" ]; then
-      log "Successfully generated $ENV_CONFIG_PATH"
-      source "$ENV_CONFIG_PATH"
-    else
-      log "Failed to generate $ENV_CONFIG_PATH"
-      exit 1
-    fi
-  else
-    exit 1
-  fi
+  exit 1
 fi
 
-# Check for required variables
-for var in DOCKER_REGISTRY IMAGE_NAME TAG CONTAINER_NAME PORT; do
-  if [ -z "${!var}" ]; then
-    log "Error: Required variable $var is not set"
-    exit 1
-  fi
-done
+# Generate a unique compose project name based on environment
+export COMPOSE_PROJECT_NAME="${APP_NAME}-${APP_ENV}"
 
 # Log configuration
 log "Starting deployment of ${IMAGE_NAME}:${TAG}"
 log "Environment: ${APP_ENV}"
 log "Container: ${CONTAINER_NAME}"
 log "Port: ${PORT}"
-
-# Check if Docker is available
-if ! command -v docker &> /dev/null; then
-  log "Error: Docker is not installed or not in PATH"
-  exit 1
-fi
-
-if ! docker info &> /dev/null; then
-  log "Error: Docker daemon is not running or current user doesn't have permissions"
-  exit 1
-fi
+log "Compose project: ${COMPOSE_PROJECT_NAME}"
 
 # Pull latest image
 log "Pulling latest image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
-if ! docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}; then
-  log "Failed to pull specific tag. Trying latest tag..."
-  
-  # Try to pull the latest tag for this environment
-  if docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${LATEST_TAG}; then
-    # Update TAG to use the successfully pulled image
-    export TAG="${LATEST_TAG}"
-    log "Using image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
-  else
-    log "Error: Failed to pull both specific and latest image"
-    exit 1
-  fi
+docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}
+
+# Check if container already exists
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+  log "Container ${CONTAINER_NAME} already exists, stopping it first"
+  docker stop ${CONTAINER_NAME} || true
+  docker rm ${CONTAINER_NAME} || true
 fi
+
+# Starting container
+log "Starting container with docker-compose"
+docker-compose up -d
+
+# Verify deployment
+log "Verifying deployment..."
+max_retries=10
+retry_count=0
+success=false
+
+while [ $retry_count -lt $max_retries ]; do
+  log "Checking container health (attempt $((retry_count+1))/${max_retries})..."
+  sleep 3
+  
+  # Check container status
+  container_status=$(docker inspect --format='{{.State.Status}}' ${CONTAINER_NAME} 2>/dev/null || echo "not_found")
+  
+  if [ "$container_status" = "running" ]; then
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
+    
+    if [ "$STATUS" = "200" ]; then
+      log "✅ Deployment successful! Application is running."
+      success=true
+      break
+    else
+      log "Container is running but health check failed with status: ${STATUS}"
+    fi
+  else
+    log "Container is not running. Status: ${container_status}"
+  fi
+  
+  retry_count=$((retry_count+1))
+done
 
 # Starting container
 log "Starting container with docker-compose"
@@ -111,8 +92,8 @@ if ! docker-compose up -d; then
   log "Trying docker run as fallback..."
   
   # Stop and remove container if it exists
-  docker stop ${CONTAINER_NAME} 2>/dev/null || true
-  docker rm ${CONTAINER_NAME} 2>/dev/null || true
+  docker stop ${CONTAINER_NAME} 1>/dev/null || true
+  docker rm ${CONTAINER_NAME} 1>/dev/null || true
   
   # Run with docker
   docker run -d \
@@ -124,6 +105,21 @@ if ! docker-compose up -d; then
     -e APP_NAME=${APP_NAME} \
     -e APP_VERSION=${APP_VERSION} \
     ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}
+
+  # Check container status
+  container_status=$(docker inspect --format='{{.State.Status}}' ${CONTAINER_NAME} 2>/dev/null || echo "not_found")
+  
+  if [ "$container_status" = "running" ]; then
+    $success=true
+  fi
+fi
+
+if [ "$success" = false ]; then
+  log "❌ Deployment verification failed after ${max_retries} attempts."
+  log "Check container logs with: docker logs ${CONTAINER_NAME}"
+  log "Container state:"
+  docker inspect --format='{{.State}}' ${CONTAINER_NAME} || echo "Container not found"
+  exit 1
 fi
 
 # Verify deployment
