@@ -39,7 +39,10 @@ fi
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
 GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
 
-# Set environment based on branch
+# Based on Branch set specific environment variables
+    # Environment Configuration
+    # Deployment Configuration
+    # Env HOST, PORT, NODE_ENV, LOG_* Configuration
 if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   # Production environment
   echo "APP_ENV=${PROD_ENV:-production}"
@@ -65,10 +68,25 @@ else
 fi
 
 # Common variables for both environments
-echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
+echo "GIT_BRANCH=${GIT_BRANCH}"
+echo "GIT_COMMIT=${GIT_COMMIT}"
+
+# application Configuration
+echo "APP_NAME=${APP_NAME}"
+echo "APP_DESCRIPTION=${APP_DESCRIPTION:-Simple Node.js application}"
+echo "APP_LICENSE=${APP_LICENSE:-MIT}"
+echo "APP_VERSION=${APP_VERSION:-1.0.0}"
+
+# Node.js Configuration
 echo "NODE_VERSION=${NODE_VERSION:-lts}"
 echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}"
-echo "APP_VERSION=${APP_VERSION:-1.0.0}"
+echo "NODE_MIN_VERSION=${NODE_MIN_VERSION:-18.0.0}"
+echo "NODE_SERVER_PATH=${NODE_SERVER_PATH:-server.js}"
+
+# Docker Configuration
+echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
 echo "RESTART_POLICY=${RESTART_POLICY:-unless-stopped}"
+
+# Deployment Specifications 
 echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo "DEPLOYMENT_SHA=${GIT_COMMIT}"
