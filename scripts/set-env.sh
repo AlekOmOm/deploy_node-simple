@@ -38,7 +38,7 @@ fi
 # Convert to lowercase for Docker compatibility
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
 GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
-    # CONTAINER_NAME deliberately not set in config/.env.config, since it is important to generate for docker container handling 
+# CONTAINER_NAME deliberately not set in config/.env.config, since it is important to generate for docker container handling 
 CONTAINER_NAME=${APP_NAME}
 
 # mkdir config if not exists
@@ -63,7 +63,13 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
   echo "DEPLOYMENT_PATH=~/app-deployment/production"
-  # alwys else === dev, since workflow tracks only two branches: main and dev
+  
+  # Set port range for auto port escalation in production
+  if [ "${AUTO_PORT_ESCALATE:-false}" = "true" ]; then
+    echo "PORT_RANGE_START=${PROD_PORT_RANGE_START:-$((PROD_PORT))}"
+    echo "PORT_RANGE_END=${PROD_PORT_RANGE_END:-$((PROD_PORT_RANGE_START:-$((PROD_PORT)) + 99))}"
+  fi
+  
 else
   # Development environment
   echo "APP_ENV=${DEV_ENV:-development}"
@@ -72,7 +78,7 @@ else
   
   # Development-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
-    # setting -dev to container name in either case of CONTAINER_NAME or APP_NAME, since both need -dev suffix
+  # setting -dev to container name in either case of CONTAINER_NAME or APP_NAME, since both need -dev suffix
   echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}}-dev | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-development
@@ -82,6 +88,12 @@ else
   echo "NODE_ENV=${DEV_NODE_ENV:-development}"
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
   echo "DEPLOYMENT_PATH=~/app-deployment/development"
+  
+  # Set port range for auto port escalation in development
+  if [ "${AUTO_PORT_ESCALATE:-false}" = "true" ]; then
+    echo "PORT_RANGE_START=${DEV_PORT_RANGE_START:-$((DEV_PORT))}"
+    echo "PORT_RANGE_END=${DEV_PORT_RANGE_END:-$((DEV_PORT_RANGE_START:-$((DEV_PORT)) + 99))}"
+  fi
 fi
 
 # Common variables for both environments
@@ -105,5 +117,20 @@ echo "NODE_SERVER_PATH=${NODE_SERVER_PATH:-server.js}"
 echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
 echo "RESTART_POLICY=${RESTART_POLICY:-unless-stopped}"
 
+# Port Auto-Escalation Configuration
+if [ "${AUTO_PORT_ESCALATE:-false}" = "true" ]; then
+  echo "AUTO_PORT_ESCALATE=true"
+  # Default fallback values if not set in branch-specific sections
+  if [ -z "${PORT_RANGE_START}" ]; then
+    echo "PORT_RANGE_START=$((PORT + 100))"
+  fi
+  if [ -z "${PORT_RANGE_END}" ]; then
+    echo "PORT_RANGE_END=$((PORT + 200))"
+  fi
+else
+  echo "AUTO_PORT_ESCALATE=false"
+fi
+
 # Deployment Specifications 
 echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "DEPLOYMENT_ID=${APP_NAME}-${GIT_BRANCH}-$(echo ${GIT_COMMIT} | cut -c1-7)"

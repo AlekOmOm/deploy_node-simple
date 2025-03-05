@@ -41,11 +41,40 @@ else
   done
 fi
 
+##################################################
+# Deployment script logic
+
 # Log configuration
 log "Starting deployment of ${IMAGE_NAME}:${TAG}"
 log "Environment: ${APP_ENV}"
 log "Container: ${CONTAINER_NAME}"
 log "Port: ${PORT}"
+
+
+## ------------ Port Escalation Logic ------------ ##
+# Check if auto port escalation is enabled and run if needed
+#
+if [ "${AUTO_PORT_ESCALATE:-false}" = "true" ]; then
+  log "Auto port escalation is enabled"
+  
+  if [ -f "./scripts/auto_port-escalation.sh" ]; then
+    log "Running auto port escalation script"
+    chmod +x ./scripts/auto_port-escalation.sh
+    ./scripts/auto_port-escalation.sh "$ENV_CONFIG_PATH"
+    
+    # If port was changed, reload environment variables
+    if [ $? -eq 0 ]; then
+      log "Port may have been changed, reloading environment"
+      load_environment "$ENV_CONFIG_PATH" true
+      log "Updated port: ${PORT}"
+    fi
+  else
+    log "Warning: Auto port escalation is enabled but script not found at ./scripts/auto_port-escalation.sh"
+  fi
+fi
+
+
+## ------------ Docker Availability Check ------------ ##
 
 # Use check_docker_availability from deployment-utils.sh if available, otherwise check manually
 if type check_docker_availability &>/dev/null; then
@@ -88,9 +117,6 @@ if type fix_env_format &>/dev/null; then
   log "Ensuring environment files are properly formatted"
   fix_env_format "$ENV_CONFIG_PATH" "$ENV_CONFIG_PATH"
 fi
-
-# Check if our target container is already running and using the target port
-log "Checking for container ${CONTAINER_NAME} using port ${PORT}..."
 
 # First, check if our target container exists
 if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
