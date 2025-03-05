@@ -47,7 +47,6 @@ get_port(){
       exit 0
     fi
 
-
     # Add after processing .env.deploy file
     if command -v netstat &> /dev/null || command -v ss &> /dev/null; then
       PORT=$(grep -oP '^PORT=\K\d+' "$PROJECT_ROOT/config/.env.deploy" || echo "3000")
