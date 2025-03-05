@@ -1,3 +1,7 @@
+// Load environment variables
+import('dotenv').config();
+
+// Import the required modules
 const http = import('http');
 const { getAppInfo } = import('./index');
 
