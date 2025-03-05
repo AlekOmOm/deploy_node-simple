@@ -53,7 +53,7 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-production
-  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-7)"
+  echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-7)"
   echo "LATEST_TAG=latest"
   
   echo "CONTAINER_NAME=$(echo ${PROD_CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
@@ -70,7 +70,7 @@ else
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-development
-  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-7)"
+  echo "TAG=$(echo dev-${GIT_COMMIT} | cut -c1-11)"
   echo "LATEST_TAG=dev-latest"
   
   echo "CONTAINER_NAME=$(echo ${DEV_CONTAINER_NAME:-${APP_NAME}-dev} | tr '[:upper:]' '[:lower:]')"
