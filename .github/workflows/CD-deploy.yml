@@ -110,11 +110,15 @@ jobs:
 
             # Convert scripts to Unix format
             dos2unix ./scripts/set-env.sh
-            dos2unix ./scripts/deploy.sh
+
+            mkdir -p ./config
             
             # Generate environment variables for deployment
             chmod +x ./scripts/set-env.sh
-            ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./.env.deploy
+            ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
+
+            dos2unix ./scripts/deploy.sh
+            dos2unix ./config/.env.deploy
             
             # Make the deploy script executable and run it
             chmod +x ./scripts/deploy.sh

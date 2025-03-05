@@ -42,8 +42,6 @@ GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]'
 # mkdir config if not exists
 mkdir -p config
 
-# .env.deploy file generation
-{
     # Based on Branch set specific environment variables
         # Environment Configuration
         # Deployment Configuration
@@ -96,16 +94,5 @@ mkdir -p config
     # Deployment Specifications 
     echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
     echo "DEPLOYMENT_SHA=${GIT_COMMIT}"
-
-
-# write to .env.deploy file
-} > config/.env.deploy
-
-# Convert the file to Unix format
-dos2unix config/.env.deploy
-
-# Source the deployment file
-set -a
-source config/.env.deploy
 
 
