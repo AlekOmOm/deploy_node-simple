@@ -38,6 +38,8 @@ fi
 # Convert to lowercase for Docker compatibility
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
 GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
+    # CONTAINER_NAME deliberately not set in config/.env.config, since it is important to generate for docker container handling 
+CONTAINER_NAME=APP_NAME
 
 # mkdir config if not exists
 mkdir -p config
@@ -50,6 +52,7 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "HOST=${PROD_HOST:-0.0.0.0}"
   
   # Production-specific image name
+  # # prod has no suffix 
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME} | tr '[:upper:]' '[:lower:]')"
   echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   
@@ -60,6 +63,7 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"
   echo "LOG_LEVEL=${PROD_LOG_LEVEL:-info}"
   echo "DEPLOYMENT_PATH=~/app-deployment/production"
+  # alwys else === dev, since workflow tracks only two branches: main and dev
 else
   # Development environment
   echo "APP_ENV=${DEV_ENV:-development}"
@@ -68,6 +72,7 @@ else
   
   # Development-specific image name
   echo "IMAGE_NAME=$(echo ${GITHUB_USERNAME}/${APP_NAME}-dev | tr '[:upper:]' '[:lower:]')"
+    # setting -dev to container name in either case of CONTAINER_NAME or APP_NAME, since both need -dev suffix
   echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}}-dev | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-development

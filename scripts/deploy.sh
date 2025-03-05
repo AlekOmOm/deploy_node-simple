@@ -83,6 +83,24 @@ if ! docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}; then
   fi
 fi
 
+# check if CONTAINER_NAME and PORT are already in use
+if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+  log "Container with name ${CONTAINER_NAME} already exists. Stopping and removing..."
+  docker stop ${CONTAINER_NAME} 2>/dev/null || true
+  docker rm ${CONTAINER_NAME} 2>/dev/null || true
+
+  # check if port is already in use
+
+    # Check port availability
+    if type check_port_availability &>/dev/null; then
+      if ! check_port_availability "${PORT}" "${HOST:-0.0.0.0}"; then
+        log "Error: Port ${PORT} is already in use on ${HOST:-0.0.0.0}"
+        log "Please choose a different port or stop the service using this port"
+        exit 1
+      fi
+    fi
+fi
+
 # Starting container
 log "Starting container with docker-compose"
 if ! docker-compose up -d; then

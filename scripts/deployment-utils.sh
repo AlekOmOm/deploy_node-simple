@@ -184,3 +184,23 @@ fix_env_format() {
   log "Fixed environment file format: $output_file"
   return 0
 }
+
+# Check if port is available
+check_port_availability() {
+  local port=$1
+  local host=${2:-"0.0.0.0"}
+  
+  if command -v netstat &> /dev/null; then
+    if netstat -tuln | grep -q "${host}:${port}"; then
+      return 1
+    fi
+  elif command -v ss &> /dev/null; then
+    if ss -tuln | grep -q "${host}:${port}"; then
+      return 1
+    fi
+  else
+    log "Warning: Neither netstat nor ss available to check port availability"
+  fi
+  
+  return 0
+}
