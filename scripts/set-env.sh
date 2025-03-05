@@ -39,7 +39,7 @@ fi
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
 GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
 # CONTAINER_NAME deliberately not set in config/.env.config, since it is important to generate for docker container handling 
-CONTAINER_NAME=Test-name-for-auto-port-escalation
+CONTAINER_NAME=test-auto-port
 
 # mkdir config if not exists
 mkdir -p config

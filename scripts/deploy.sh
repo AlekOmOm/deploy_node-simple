@@ -118,26 +118,44 @@ if type fix_env_format &>/dev/null; then
   fix_env_format "$ENV_CONFIG_PATH" "$ENV_CONFIG_PATH"
 fi
 
-# First, check if our target container exists
-if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
-  log "Container ${CONTAINER_NAME} exists"
+## ------------ Container Handling ------------ ##
+
+# Check for container and port conflicts
+log "Checking for deployment conflicts..."
+
+# First scenario: Check if OUR container exists (exact name match)
+OUR_CONTAINER_EXISTS=false
+if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}$"; then
+  log "Container with our target name ${CONTAINER_NAME} exists"
+  OUR_CONTAINER_EXISTS=true
   
-  # Check if it's using our target port
-  if docker port ${CONTAINER_NAME} | grep -q ":${PORT}" || docker inspect --format='{{range $p, $conf := .HostConfig.PortBindings}}{{(index $conf 0).HostPort}}{{end}}' ${CONTAINER_NAME} | grep -q "${PORT}"; then
-    log "Container ${CONTAINER_NAME} is using port ${PORT}. Stopping it..."
-    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
-    
-    log "Removing container ${CONTAINER_NAME}..."
-    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  # Stop and remove our container regardless of port
+  log "Stopping and removing our existing container ${CONTAINER_NAME}..."
+  docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
+  docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+else
+  log "No container with our target name ${CONTAINER_NAME} found"
+fi
+
+# Second scenario: Check if PORT is in use by ANY container
+# Only if auto port escalation is disabled
+if [ "${AUTO_PORT_ESCALATE:-false}" != "true" ]; then
+  PORT_CONTAINER=$(docker ps --format '{{.Names}}:{{.Ports}}' | grep -E ":${PORT}(-|->)" | cut -d ':' -f1 | head -n1)
+  
+  if [ -n "$PORT_CONTAINER" ]; then
+    # Don't stop containers we don't own
+    if [ "$PORT_CONTAINER" != "$CONTAINER_NAME" ]; then
+      log "Warning: Port ${PORT} is already in use by container ${PORT_CONTAINER}"
+      log "Since AUTO_PORT_ESCALATE is disabled, this will likely cause a deployment failure"
+      log "Consider enabling AUTO_PORT_ESCALATE=true in config"
+    fi
   else
-    log "Container ${CONTAINER_NAME} exists but is not using port ${PORT}. Stopping it anyway as we need the name..."
-    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
-    
-    log "Removing container ${CONTAINER_NAME}..."
-    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+    log "No containers found using port ${PORT}"
   fi
-  
-  # Clean up related images
+fi
+
+# Clean up related images only if we had our container
+if [ "$OUR_CONTAINER_EXISTS" = true ]; then
   if type cleanup_old_resources &>/dev/null; then
     log "Using utility to clean up old resources"
     cleanup_old_resources "${APP_ENV}"
@@ -145,16 +163,20 @@ if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
     log "Cleaning up old images for environment: ${APP_ENV}"
     docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
   fi
-else
-  log "No container named ${CONTAINER_NAME} found"
 fi
 
-# Now check port availability to ensure port is free
+# The port availability check should be performed after auto port escalation
+# so we're checking the potentially new port value
 if type check_port_availability &>/dev/null; then
   log "Checking if port ${PORT} is available on ${HOST:-0.0.0.0}"
   if ! check_port_availability "${PORT}" "${HOST:-0.0.0.0}"; then
-    log "Error: Port ${PORT} is in use on ${HOST:-0.0.0.0} by a different service"
-    log "Please either free up this port or configure a different port in the environment files"
+    if [ "${AUTO_PORT_ESCALATE:-false}" = "true" ]; then
+      log "Error: Port ${PORT} is still in use even after auto port escalation"
+      log "This suggests all ports in the configured range are in use"
+    else
+      log "Error: Port ${PORT} is in use on ${HOST:-0.0.0.0} by a different service"
+      log "Consider enabling AUTO_PORT_ESCALATE=true in config"
+    fi
     log "You may need to manually check what's using this port with: lsof -i :${PORT} or netstat -tuln | grep ${PORT}"
     exit 1
   else
@@ -163,6 +185,12 @@ if type check_port_availability &>/dev/null; then
 else
   log "Port availability check skipped (utility function not available)"
 fi
+
+
+
+
+## ------------ Deployment Verification ------------ ##
+
 
 # Starting container with docker-compose
 log "Starting container with docker-compose"

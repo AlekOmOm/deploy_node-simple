@@ -40,6 +40,52 @@ else
   exit 1
 fi
 
+## ------------ Port Escalation Logic ------------ ##
+
+check_port_comprehensive() {
+  local port=$1
+  local host=${2:-"0.0.0.0"}
+  local in_use=false
+  
+  # Check 1: System-level port check with netstat/ss
+  if command -v netstat &> /dev/null; then
+    if netstat -tuln | grep -q "${host}:${port}" || netstat -tuln | grep -q ":${port} "; then
+      log "Port ${port} is in use according to netstat"
+      in_use=true
+    fi
+  elif command -v ss &> /dev/null; then
+    if ss -tuln | grep -q "${host}:${port}" || ss -tuln | grep -q ":${port} "; then
+      log "Port ${port} is in use according to ss"
+      in_use=true
+    fi
+  fi
+  
+  # Check 2: Docker-specific check
+  if command -v docker &> /dev/null; then
+    if docker ps --format '{{.Names}}:{{.Ports}}' | grep -E ":${port}(-|->)" > /dev/null; then
+      CONTAINER_USING_PORT=$(docker ps --format '{{.Names}}:{{.Ports}}' | grep -E ":${port}(-|->)" | cut -d ':' -f1 | head -n1)
+      log "Port ${port} is in use by Docker container: ${CONTAINER_USING_PORT}"
+      in_use=true
+    fi
+  fi
+  
+  # Check 3: lsof if available (more detailed)
+  if command -v lsof &> /dev/null; then
+    if lsof -i:${port} > /dev/null 2>&1; then
+      log "Port ${port} is in use according to lsof"
+      in_use=true
+    fi
+  fi
+  
+  if [ "$in_use" = true ]; then
+    return 1  # Port is in use
+  else
+    return 0  # Port is available
+  fi
+}
+
+## ------------ Main Script ------------ ##
+
 # Skip if not enabled or port not found
 if [ "${AUTO_PORT_ESCALATE:-false}" != "true" ]; then
   log "Auto port escalation is disabled (AUTO_PORT_ESCALATE != true)"
@@ -51,72 +97,46 @@ if [ -z "$PORT" ]; then
   exit 1
 fi
 
+## ------------ Port Availability ------------ ##
+
 log "Auto port escalation: Checking if port $PORT is available on $HOST"
 log "Using port range $PORT_RANGE_START-$PORT_RANGE_END"
 
-# Check if current port is available (reusing utility function if possible)
-PORT_AVAILABLE=true
-if type check_port_availability &>/dev/null; then
-  if ! check_port_availability "$PORT" "$HOST"; then
-    PORT_AVAILABLE=false
-  fi
-else
-  # Fallback port check
-  if command -v netstat &> /dev/null; then
-    if netstat -tuln | grep -q "${HOST}:${PORT}"; then
-      PORT_AVAILABLE=false
-    fi
-  elif command -v ss &> /dev/null; then
-    if ss -tuln | grep -q "${HOST}:${PORT}"; then
-      PORT_AVAILABLE=false
-    fi
-  else
-    log "Warning: Neither netstat nor ss available to check port availability"
-    exit 0
-  fi
-fi
 
-# If current port is available, exit early
-if [ "$PORT_AVAILABLE" = true ]; then
+# Check if current port is available using comprehensive check
+if check_port_comprehensive "$PORT" "$HOST"; then
   log "Port $PORT is available, no escalation needed"
   exit 0
+else
+  log "Port $PORT is in use, searching for available port..."
 fi
 
+## ------------ Port Escalation ------------ ##
+
 # Find next available port
-log "Port $PORT is in use, searching for available port in range $PORT_RANGE_START-$PORT_RANGE_END..."
+log "Searching for available port in range $PORT_RANGE_START-$PORT_RANGE_END..."
 NEW_PORT=$PORT_RANGE_START
 PORT_FOUND=false
 
 # Search through the configured range
 while [ $NEW_PORT -le $PORT_RANGE_END ]; do
+  # Skip the current port as we already know it's in use
+  if [ "$NEW_PORT" = "$PORT" ]; then
+    NEW_PORT=$((NEW_PORT + 1))
+    continue
+  fi
+  
   # Check if new port is available
-  if type check_port_availability &>/dev/null; then
-    if check_port_availability "$NEW_PORT" "$HOST"; then
-      PORT_FOUND=true
-      break
-    fi
-  else
-    # Fallback port check
-    PORT_IN_USE=false
-    if command -v netstat &> /dev/null; then
-      if netstat -tuln | grep -q "${HOST}:${NEW_PORT}"; then
-        PORT_IN_USE=true
-      fi
-    elif command -v ss &> /dev/null; then
-      if ss -tuln | grep -q "${HOST}:${NEW_PORT}"; then
-        PORT_IN_USE=true
-      fi
-    fi
-    
-    if [ "$PORT_IN_USE" = false ]; then
-      PORT_FOUND=true
-      break
-    fi
+  if check_port_comprehensive "$NEW_PORT" "$HOST"; then
+    PORT_FOUND=true
+    break
   fi
   
   NEW_PORT=$((NEW_PORT + 1))
 done
 
+
+## ------------ Update Config ------------ ##
 # Update config if available port found
 if [ "$PORT_FOUND" = true ]; then
   log "Found available port: $NEW_PORT (original was $PORT)"
@@ -125,7 +145,8 @@ if [ "$PORT_FOUND" = true ]; then
   sed -i "s/^PORT=$PORT/PORT=$NEW_PORT/" "$ENV_CONFIG_PATH"
   
   # Create a record of the port change
-  echo "$(date +'%Y-%m-%d %H:%M:%S') | Port auto-escalated from $PORT to $NEW_PORT for deployment ID: $(grep -oP '^DEPLOYMENT_ID=\K.*' "$ENV_CONFIG_PATH" || echo "unknown")" >> "$PROJECT_ROOT/port_changes.log"
+  DEPLOYMENT_ID=$(grep -oP '^DEPLOYMENT_ID=\K.*' "$ENV_CONFIG_PATH" || echo "unknown")
+  echo "$(date +'%Y-%m-%d %H:%M:%S') | Port auto-escalated from $PORT to $NEW_PORT for deployment ID: $DEPLOYMENT_ID" >> "$PROJECT_ROOT/port_changes.log"
   
   # Return success
   exit 0
