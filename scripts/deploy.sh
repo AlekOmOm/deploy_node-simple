@@ -1,104 +1,134 @@
 #!/bin/bash
 set -e
 
-# Script location awareness
+# Base directory detection
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Source utilities if available
-UTILS_PATH="$SCRIPT_DIR/deployment-utils.sh"
-if [ -f "$UTILS_PATH" ]; then
-    source "$UTILS_PATH"
+# Source the utility functions
+if [ -f "$SCRIPT_DIR/deployment-utils.sh" ]; then
+  source "$SCRIPT_DIR/deployment-utils.sh"
 else
-    # Minimal implementation if utils not available
-    log() {
-        echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-    }
+  # Define minimal log function if utils not available
+  log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+  }
+  log "Warning: deployment-utils.sh not found, using limited functionality"
 fi
 
-# Configuration paths
-ENV_CONFIG_PATH="$PROJECT_ROOT/config/.env.deploy"
-
-# --- Main deployment flow ---
-
-# 1. Check and load environment
+# Log initial information
 log "Starting deployment process"
 log "Working directory: $(pwd)"
 log "Project root: $PROJECT_ROOT"
-log " content: $(ls -la $PROJECT_ROOT)"
-log " content: $(ls -la $PROJECT_ROOT/config)"
 
-if [ ! -f "$ENV_CONFIG_PATH" ]; then
-    log "Error: Required environment file not found at $ENV_CONFIG_PATH"
-    log "Checking if we can generate it..."
-    
-    if [ -f "$SCRIPT_DIR/set-env.sh" ]; then
-        log "Found set-env.sh, attempting to generate environment file"
-        mkdir -p "$(dirname "$ENV_CONFIG_PATH")"
-        chmod +x "$SCRIPT_DIR/set-env.sh"
-        "$SCRIPT_DIR/set-env.sh" > "$ENV_CONFIG_PATH"
-    else
-        log "Error: Cannot generate environment file - set-env.sh not found"
-        exit 1
-    fi
-fi
+# Check directory content
+log "content: $(ls -la)"
+log " - config content: $(ls -la config)"
+log " - scripts content: $(ls -la scripts)"
 
-log "Loading deployment variables from $ENV_CONFIG_PATH"
-# Use robust environment loading
-if [ -f "$UTILS_PATH" ]; then
+# Environment configuration path
+ENV_CONFIG_PATH="config/.env.deploy"
+
+# Environment file loading
+if [ -f "$ENV_CONFIG_PATH" ]; then
+  log "Loading deployment variables from $ENV_CONFIG_PATH"
+  
+  # Use utility function if available
+  if type load_environment &>/dev/null; then
     load_environment "$ENV_CONFIG_PATH"
+  else
+    # Original approach: Parse line by line
+    while IFS='=' read -r key value || [ -n "$key" ]; do
+      # Skip empty lines and comments
+      if [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]]; then
+        continue
+      fi
+      
+      # Remove any whitespace and export the variable
+      key=$(echo "$key" | xargs)
+      value=$(echo "$value" | xargs)
+      
+      # Validate key before export to avoid command execution
+      if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        export "$key=$value"
+      else
+        log "Warning: Skipping invalid variable name: $key"
+      fi
+    done < "$ENV_CONFIG_PATH"
+  fi
 else
-    # Fallback if utils not available
-    set -a
-    source "$ENV_CONFIG_PATH"
-    set +a
+  log "Error: .env.deploy file not found at $ENV_CONFIG_PATH"
+  exit 1
 fi
 
-# 2. Validate critical variables
-log "Validating required variables"
-REQUIRED_VARS="DOCKER_REGISTRY IMAGE_NAME TAG PORT CONTAINER_NAME"
-MISSING_VARS=0
+# Log configuration
+log "Starting deployment of ${IMAGE_NAME}:${TAG}"
+log "Environment: ${APP_ENV}"
+log "Container: ${CONTAINER_NAME}"
+log "Port: ${PORT}"
 
-for VAR in $REQUIRED_VARS; do
-    if [ -z "${!VAR}" ]; then
-        log "Error: Required variable $VAR is not set"
-        MISSING_VARS=$((MISSING_VARS+1))
-    fi
+# Check Docker availability
+if type check_docker_availability &>/dev/null; then
+  check_docker_availability || exit 1
+else
+  # Simple check
+  if ! command -v docker &> /dev/null; then
+    log "Error: Docker is not installed or not in PATH"
+    exit 1
+  fi
+fi
+
+# Required variables
+REQUIRED_VARS=("DOCKER_REGISTRY" "IMAGE_NAME" "TAG" "PORT" "CONTAINER_NAME")
+MISSING=0
+
+for var in "${REQUIRED_VARS[@]}"; do
+  if [ -z "${!var}" ]; then
+    log "Error: Required variable $var is not set"
+    MISSING=$((MISSING+1))
+  fi
 done
 
-if [ $MISSING_VARS -gt 0 ]; then
-    log "Error: $MISSING_VARS required variables are missing"
-    exit 1
+if [ $MISSING -gt 0 ]; then
+  log "Error: $MISSING required variables are missing"
+  exit 1
 fi
 
-# 3. Pull latest image
-log "Pulling image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
+# Pull latest image
+log "Pulling latest image: ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}"
 docker pull ${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG}
 
-# 4. Deploy with docker-compose
+# Starting container
 log "Starting container with docker-compose"
-docker-compose up -d
-
-# 5. Verify deployment
-log "Verifying deployment..."
-sleep 5
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
-
-if [ "$STATUS" = "200" ]; then
-    log "✅ Deployment successful! Application is running."
+if [[ "$(docker compose version 2>/dev/null)" ]]; then
+  docker compose up -d
 else
+  docker-compose up -d
+fi
+
+# Verify deployment
+if type verify_deployment &>/dev/null; then
+  verify_deployment "localhost" "$PORT" 3 5 || exit 1
+else
+  log "Verifying deployment..."
+  sleep 5
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/ || echo "failed")
+
+  if [ "$STATUS" = "200" ]; then
+    log "✅ Deployment successful! Application is running."
+  else
     log "❌ Deployment verification failed. Status: ${STATUS}"
     log "Check container logs with: docker logs ${CONTAINER_NAME}"
     exit 1
+  fi
 fi
 
-# 6. Clean up
-log "Cleaning up old images"
-docker image prune -f --filter "label=deployment.environment=${APP_ENV}"
-
-# Log deployment success
-if [ -f "$PROJECT_ROOT/deployment_history.log" ]; then
-    echo "$(date +'%Y-%m-%d %H:%M:%S') - Deployed ${IMAGE_NAME}:${TAG}" >> "$PROJECT_ROOT/deployment_history.log"
+# Clean up old images
+if type cleanup_old_resources &>/dev/null; then
+  cleanup_old_resources "$APP_ENV"
+else
+  log "Cleaning up old images"
+  docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
 fi
 
 log "Deployment completed successfully"
