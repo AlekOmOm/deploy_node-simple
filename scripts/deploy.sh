@@ -89,15 +89,29 @@ if type fix_env_format &>/dev/null; then
   fix_env_format "$ENV_CONFIG_PATH" "$ENV_CONFIG_PATH"
 fi
 
-# Check if container with same name is already running and stop/remove it
+# Check if our target container is already running and using the target port
+log "Checking for container ${CONTAINER_NAME} using port ${PORT}..."
+
+# First, check if our target container exists
 if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
-  log "Container with name ${CONTAINER_NAME} already exists. Stopping it..."
-  docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container, it might not be running"
+  log "Container ${CONTAINER_NAME} exists"
   
-  log "Removing container ${CONTAINER_NAME}..."
-  docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  # Check if it's using our target port
+  if docker port ${CONTAINER_NAME} | grep -q ":${PORT}" || docker inspect --format='{{range $p, $conf := .HostConfig.PortBindings}}{{(index $conf 0).HostPort}}{{end}}' ${CONTAINER_NAME} | grep -q "${PORT}"; then
+    log "Container ${CONTAINER_NAME} is using port ${PORT}. Stopping it..."
+    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
+    
+    log "Removing container ${CONTAINER_NAME}..."
+    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  else
+    log "Container ${CONTAINER_NAME} exists but is not using port ${PORT}. Stopping it anyway as we need the name..."
+    docker stop ${CONTAINER_NAME} || log "Warning: Failed to stop container"
+    
+    log "Removing container ${CONTAINER_NAME}..."
+    docker rm ${CONTAINER_NAME} || log "Warning: Failed to remove container"
+  fi
   
-  # Use cleanup_old_resources if available, otherwise do cleanup manually
+  # Clean up related images
   if type cleanup_old_resources &>/dev/null; then
     log "Using utility to clean up old resources"
     cleanup_old_resources "${APP_ENV}"
@@ -105,15 +119,20 @@ if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
     log "Cleaning up old images for environment: ${APP_ENV}"
     docker image prune -f --filter "label=deployment.environment=${APP_ENV}" || true
   fi
+else
+  log "No container named ${CONTAINER_NAME} found"
 fi
 
-# Check port availability if function exists
+# Now check port availability to ensure port is free
 if type check_port_availability &>/dev/null; then
   log "Checking if port ${PORT} is available on ${HOST:-0.0.0.0}"
   if ! check_port_availability "${PORT}" "${HOST:-0.0.0.0}"; then
-    log "Error: Port ${PORT} is already in use on ${HOST:-0.0.0.0}"
+    log "Error: Port ${PORT} is in use on ${HOST:-0.0.0.0} by a different service"
     log "Please either free up this port or configure a different port in the environment files"
+    log "You may need to manually check what's using this port with: lsof -i :${PORT} or netstat -tuln | grep ${PORT}"
     exit 1
+  else
+    log "Port ${PORT} is available"
   fi
 else
   log "Port availability check skipped (utility function not available)"
