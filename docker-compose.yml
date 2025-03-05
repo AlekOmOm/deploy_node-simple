@@ -5,7 +5,7 @@ services:
     container_name: ${CONTAINER_NAME}
     restart: ${RESTART_POLICY}
     env_file:
-      - .env.deploy 
+      - ./config/.env.deploy 
     ports:
       - "${PORT}:${PORT}"
     healthcheck:
