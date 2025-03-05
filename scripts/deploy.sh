@@ -25,6 +25,8 @@ ENV_CONFIG_PATH="$PROJECT_ROOT/config/.env.deploy"
 log "Starting deployment process"
 log "Working directory: $(pwd)"
 log "Project root: $PROJECT_ROOT"
+log " content: $(ls -la $PROJECT_ROOT)"
+log " content: $(ls -la $PROJECT_ROOT/config)"
 
 if [ ! -f "$ENV_CONFIG_PATH" ]; then
     log "Error: Required environment file not found at $ENV_CONFIG_PATH"

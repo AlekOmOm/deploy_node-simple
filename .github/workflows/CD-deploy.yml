@@ -83,6 +83,8 @@ jobs:
           chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh >> $GITHUB_ENV
 
+          ls -la ./scripts
+
       - name: Copy deployment files to server
         uses: appleboy/scp-action@master
         with:
@@ -119,5 +121,7 @@ jobs:
             cd ${{ env.DEPLOYMENT_PATH }}
 
             chmod +x ./scripts/deploy.sh
-            chmod +x ./scripts/*
+            chmod +x ./scripts/set-env.sh
+            chmod +x ./scripts/deployment_utils.sh
+            chmod +x ./config/.env.deploy
             ./scripts/deploy.sh
