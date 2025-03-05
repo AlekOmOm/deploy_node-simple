@@ -16,7 +16,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT=$(git rev-parse HEAD)
     # Convert to lowercase for Docker compatibility
 APP_NAME=$(echo ${APP_NAME:-deploy_node-simple} | tr '[:upper:]' '[:lower:]')
-GITHUB_USERNAME_LOWER=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
+GITHUB_USERNAME=$(echo ${GITHUB_USERNAME:-alekomom} | tr '[:upper:]' '[:lower:]')
 
 # Set environment based on branch
 if [[ $BRANCH == "main" || $BRANCH == "master" ]]; then
