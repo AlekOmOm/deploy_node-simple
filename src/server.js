@@ -1,15 +1,18 @@
 // Load environment variables
-import('dotenv').config();
+import dotenv from 'dotenv';
+
+dotenv.config({ path: './config/.env.deploy' });
 
 // Import the required modules
 const http = import('http');
 const { getAppInfo } = import('./index');
 
-// Get port from environment or default to 3000
-const PORT = process.env.PORT || 3000;
+// const HOST and PORT 
 const HOST = process.env.HOST || '0.0.0.0';
+const PORT = process.env.PORT || 3000;
 
-// Create HTTP server
+// ------------------------------------------
+
 const server = http.createServer((req, res) => {
   const appInfo = getAppInfo();
   
@@ -36,6 +39,10 @@ const server = http.createServer((req, res) => {
   // Send response
   res.end(JSON.stringify(responseData, null, 2));
 });
+
+
+
+// ------------------------------------------
 
 // Start server
 server.listen(PORT, HOST, () => {

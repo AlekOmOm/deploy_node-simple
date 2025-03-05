@@ -108,10 +108,6 @@ jobs:
             chmod +x ./scripts/set-env.sh
             ./scripts/set-env.sh > ./.env.deploy
             
-            # Add secrets to the deployment environment
-            echo "API_KEY=${{ secrets.API_KEY }}" >> ./.env.deploy
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> ./.env.deploy
-            
             # Make the deploy script executable and run it
             chmod +x ./scripts/deploy.sh
             ./scripts/deploy.sh
