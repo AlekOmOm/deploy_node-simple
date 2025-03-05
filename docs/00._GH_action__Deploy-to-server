@@ -1,0 +1,77 @@
+Let's analyze the flow in the "Deploy to server" step:
+
+## Detailed Deployment Flow Analysis
+
+1. **Environment Preparation**:
+   ```bash
+   cd ${{ env.DEPLOYMENT_PATH }}
+   ```
+   - Changes to the deployment directory, which was previously set in the GitHub Actions environment
+
+2. **Unix Format Conversion**:
+   ```bash
+   sudo apt-get update && sudo apt-get install -y dos2unix
+   dos2unix ./scripts/set-env.sh
+   ```
+   - Ensures scripts have proper Unix line endings (prevents "bad interpreter" errors)
+   - This is important because files from Windows environments might have CRLF line endings
+
+3. **Directory Structure**:
+   ```bash
+   mkdir -p ./config
+   ```
+   - Creates the config directory if it doesn't exist
+
+4. **Environment Variable Generation**:
+   ```bash
+   chmod +x ./scripts/set-env.sh
+   ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
+   ```
+   - Makes the script executable
+   - Executes set-env.sh, passing the branch name and commit SHA as parameters
+   - Redirects the output to ./config/.env.deploy
+   - This creates the deployment-specific environment configuration
+
+5. **More Format Conversions**:
+   ```bash
+   dos2unix ./scripts/deploy.sh
+   dos2unix ./config/.env.deploy
+   ```
+   - Ensures deploy script and environment file have proper Unix line endings
+
+6. **Deployment Execution**:
+   ```bash
+   chmod +x ./scripts/deploy.sh
+   ./scripts/deploy.sh
+   ```
+   - Makes the deploy script executable
+   - Runs the deployment script
+
+## Key Flow: set-env.sh → .env.deploy → deploy.sh
+
+The critical data flow is:
+
+1. **set-env.sh** 
+   - Generates environment variables based on the branch (main/dev)
+   - Branch-specific settings come from .env.config (PORT, HOST, etc.)
+   - Outputs key=value pairs to stdout
+
+2. **./config/.env.deploy** 
+   - Captures the output from set-env.sh
+   - Acts as a branch-specific configuration file
+   - Contains all variables needed for deployment (IMAGE_NAME, TAG, PORT, etc.)
+
+3. **deploy.sh**
+   - Loads variables from .env.deploy with `source "$ENV_CONFIG_PATH"`
+   - Uses these variables to:
+     - Pull the correct Docker image
+     - Set up the container environment
+     - Run docker-compose with the appropriate configuration
+
+## Importance of .env.deploy
+
+The .env.deploy file serves as the bridge between:
+- The CI/CD pipeline's knowledge of which branch is being deployed
+- The runtime environment needed for the application in that specific environment (dev/prod)
+- The configuration required by docker-compose to run the container
+

@@ -119,6 +119,8 @@ jobs:
 
             dos2unix ./scripts/deploy.sh
             dos2unix ./config/.env.deploy
+
+            sed -i 's/\r$//' ./config/.env.deploy
             
             # Make the deploy script executable and run it
             chmod +x ./scripts/deploy.sh

@@ -17,9 +17,20 @@ log "content of .env.deploy: $(cat $ENV_CONFIG_PATH)"
 
 if [ -f "$ENV_CONFIG_PATH" ]; then
   log "Loading deployment variables from .env.deploy at $ENV_CONFIG_PATH"
-  set -a # automatically export all variables
-  source "$ENV_CONFIG_PATH"  
-  set +a
+  
+  # More robust way to load environment variables
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    # Skip empty lines and comments
+    if [[ -z "$key" || "$key" =~ ^# ]]; then
+      continue
+    fi
+    
+    # Remove any whitespace and export the variable
+    key=$(echo "$key" | xargs)
+    value=$(echo "$value" | xargs)
+    export "$key=$value"
+    
+  done < "$ENV_CONFIG_PATH"
 else
   log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 
   exit 1
