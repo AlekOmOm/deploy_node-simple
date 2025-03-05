@@ -57,7 +57,7 @@ if [[ $GIT_BRANCH == "main" || $GIT_BRANCH == "master" ]]; then
   echo "CONTAINER_NAME=$(echo ${CONTAINER_NAME:-${APP_NAME}} | tr '[:upper:]' '[:lower:]')"
   
   # Two tags: short commit and latest-production
-  echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-7)"
+  echo "TAG=$(echo ${GIT_COMMIT} | cut -c1-11)"
   echo "LATEST_TAG=latest"
   
   echo "NODE_ENV=${PROD_NODE_ENV:-production}"

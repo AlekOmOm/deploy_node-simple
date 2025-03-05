@@ -9,15 +9,22 @@
 # Check if port is available
 check_port_availability() {
   local port=$1
-  local host=$2
+  local host=${2:-"0.0.0.0"}
+  
   if command -v netstat &> /dev/null; then
-    netstat -tuln | grep -q ":$port " || netstat -tuln | grep -q " $host:$port "
+    if netstat -tuln | grep -q ":$port " || netstat -tuln | grep -q " $host:$port "; then
+      return 1  # Port IS in use
+    fi
   elif command -v ss &> /dev/null; then
-    ss -tuln | grep -q ":$port " || ss -tuln | grep -q " $host:$port "
+    if ss -tuln | grep -q ":$port " || ss -tuln | grep -q " $host:$port "; then
+      return 1  # Port IS in use
+    fi
   else
     echo "Neither netstat nor ss is available"
-    return 1
+    return 1  # Assume port is in use to be safe
   fi
+  
+  return 0  # Port is available
 }
 
 
