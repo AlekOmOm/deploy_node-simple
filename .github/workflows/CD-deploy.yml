@@ -77,6 +77,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set environment variables
+        id: set-env
+        run: |
+          chmod +x ./scripts/set-env.sh
+          ./scripts/set-env.sh >> $GITHUB_ENV
+
       - name: Copy deployment files to server
         uses: appleboy/scp-action@master
         with:
@@ -96,7 +102,6 @@ jobs:
           find ./scripts -name "*.sh" -exec dos2unix {} \;
           
           # Generate environment once
-          ./scripts/set-env.sh >> $GITHUB_ENV
           ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
 
           # Ensure dos2unix is installed (only needed once)
