@@ -42,3 +42,12 @@ else
   echo "LOG_LEVEL=${DEV_LOG_LEVEL:-debug}"
   echo "DEPLOYMENT_PATH=~/app-deployment/development"
 fi
+
+# Common variables for both environments
+echo "DOCKER_REGISTRY=${DOCKER_REGISTRY:-ghcr.io}"
+echo "NODE_VERSION=${NODE_VERSION:-lts}"
+echo "NODE_VERSION_TAG=${NODE_VERSION_TAG:-slim}"
+echo "APP_VERSION=${APP_VERSION:-1.0.0}"
+echo "RESTART_POLICY=${RESTART_POLICY:-unless-stopped}"
+echo "DEPLOYMENT_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "DEPLOYMENT_SHA=${GITHUB_SHA:-local}"
