@@ -27,7 +27,7 @@ jobs:
         id: set-env
         run: |
           chmod +x ./scripts/set-env.sh
-          ./scripts/set-env.sh >> $GITHUB_ENV
+          ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" >> $GITHUB_ENV
       
       # Set up Node.js
       - name: Set up Node.js
@@ -60,7 +60,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}-${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ env.APP_ENV }}
           build-args: |
             NODE_VERSION=${{ env.NODE_VERSION }}
             NODE_VERSION_TAG=${{ env.NODE_VERSION_TAG }}
@@ -81,23 +81,7 @@ jobs:
         id: set-env
         run: |
           chmod +x ./scripts/set-env.sh
-          ./scripts/set-env.sh >> $GITHUB_ENV
-
-      - name: Print of dir content 
-        run: | 
-          ls -la
-          ls -la ./scripts
-          ls -la ./config
-
-      - name: Copy deployment files to server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment_utils.sh,scripts/prepare-scripts.sh"
-          target: "${{ env.DEPLOYMENT_PATH }}"
+          ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Prepare deployment files
         run: |
@@ -107,14 +91,29 @@ jobs:
           chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
 
+
           # Ensure dos2unix is installed (only needed once)
-          sudo apt-get update && sudo apt-get install -y dos2unix
-          dos2unix ./config/.env.*
-          dos2unix ./scripts/*.sh
+
+          if ! command -v dos2unix &> /dev/null
+          then
+              sudo apt-get update && sudo apt-get install -y dos2unix
+          fi
+          dos2unix ./config/.env.* 2>/dev/null || true
+          dos2unix ./scripts/*.sh 2>/dev/null || true
       
           sed -i 's/\r$//' ./config/.env.deploy
 
-      - name: Deploy.sh in server
+      - name: Copy deployment files to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "scripts/deploy.sh,docker-compose.yml,config/.env.config,config/.env.deploy,scripts/set-env.sh,scripts/deployment-utils.sh,scripts/deployment_utils.sh"
+          target: "${{ env.DEPLOYMENT_PATH }}"
+
+      - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -123,9 +122,12 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ${{ env.DEPLOYMENT_PATH }}
-
+            
+            # Fix permissions
             chmod +x ./scripts/deploy.sh
             chmod +x ./scripts/set-env.sh
-            chmod +x ./scripts/deployment_utils.sh
-            chmod +x ./config/.env.deploy
+            chmod +x ./scripts/deployment-utils.sh 2>/dev/null || true
+            chmod +x ./scripts/deployment_utils.sh 2>/dev/null || true
+            
+            # Run deployment
             ./scripts/deploy.sh
