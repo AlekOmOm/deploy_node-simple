@@ -97,8 +97,8 @@ jobs:
         run: |
           mkdir -p ./config
           
-          
           # Generate environment once
+          chmod +x ./scripts/set-env.sh
           ./scripts/set-env.sh "${{ github.ref_name }}" "${{ github.sha }}" > ./config/.env.deploy
 
           # Ensure dos2unix is installed (only needed once)
@@ -110,7 +110,7 @@ jobs:
 
           chmod +x ./scripts/*.sh
 
-      - name: Deploy to server
+      - name: Deploy.sh in server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
