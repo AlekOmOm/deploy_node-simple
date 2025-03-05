@@ -11,11 +11,14 @@ log() {
 log "dir contents: $(ls -la)"
 log "config contents $(ls -la config)"
 
-$ENV_CONFIG_PATH= ".env.deploy"
-if [ -f $ENV_CONFIG_PATH ]; then
+ENV_CONFIG_PATH= ".env.deploy"
+
+log "content of .env.deploy: $(cat $ENV_CONFIG_PATH)"
+
+if [ -f "$ENV_CONFIG_PATH" ]; then
   log "Loading deployment variables from .env.deploy at $ENV_CONFIG_PATH"
   set -a # automatically export all variables
-  source $ENV_CONFIG_PATH  
+  source "$ENV_CONFIG_PATH"  
   set +a
 else
   log "Error: .env.deploy file not found at $ENV_CONFIG_PATH" 

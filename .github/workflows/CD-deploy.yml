@@ -103,6 +103,14 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ${{ env.DEPLOYMENT_PATH }}
+
+            
+            # Ensure dos2unix is installed (only needed once)
+            sudo apt-get update && sudo apt-get install -y dos2unix
+
+            # Convert scripts to Unix format
+            dos2unix ./scripts/set-env.sh
+            dos2unix ./scripts/deploy.sh
             
             # Generate environment variables for deployment
             chmod +x ./scripts/set-env.sh
