@@ -7,8 +7,11 @@ log() {
 }
 
 # Primary source of variables: .env.deploy
-# # path from repo root: ./config/.env.deploy
-$ENV_CONFIG_PATH="./config/.env.deploy"
+
+log "dir contents: $(ls -la)"
+log "config contents $(ls -la config)"
+
+$ENV_CONFIG_PATH= "config/.env.deploy"
 if [ -f $ENV_CONFIG_PATH ]; then
   log "Loading deployment variables from .env.deploy at $ENV_CONFIG_PATH"
   set -a # automatically export all variables
